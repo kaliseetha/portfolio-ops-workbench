@@ -293,7 +293,7 @@ function App() {
       <aside className="sidebar">
         <a className="brand" href="#home" aria-label="OpsDesk home">
           <span className="brand-mark"><Landmark size={19} strokeWidth={2.2} /></span>
-          <span className="brand-name">ops<span>desk</span></span>
+          <span className="brand-name">Ops<span>Desk</span></span>
         </a>
         <div className="workspace-switcher">
           <div className="workspace-icon">N</div>
@@ -319,8 +319,8 @@ function App() {
           </div>
           <button className="nav-item help-item" onClick={() => showToast("This is a synthetic-data product demo")}><CircleHelp size={17} /><span>Help & support</span></button>
           <div className="user-profile">
-            <div className="avatar">JD</div>
-            <div className="user-copy"><strong>Jordan Davis</strong><span>Operations reviewer</span></div>
+            <div className="avatar">AK</div>
+            <div className="user-copy"><strong>Abdul Kalam</strong><span>Operations reviewer</span></div>
             <Ellipsis size={18} />
           </div>
         </div>
@@ -332,7 +332,7 @@ function App() {
           <div className="topbar-actions">
             <span className="demo-chip"><span className="demo-dot" /> Synthetic data demo</span>
             <button className="icon-button notification-button" aria-label="Notifications" onClick={() => showToast("You’re all caught up")}><Bell size={18} /><i /></button>
-            <div className="top-avatar">JD</div>
+            <div className="top-avatar">AK</div>
           </div>
         </header>
 
@@ -431,7 +431,7 @@ function App() {
               </div>
 
               <div className="activity-heading"><h3>Recent activity</h3><button onClick={() => showToast("Showing activity for the selected exception")}>View all</button></div>
-              <div className="activity-entry"><span className="activity-marker"><Activity size={12} /></span><span><strong>{events[0]}</strong><small>Jordan Davis <span>· just now</span></small></span></div>
+              <div className="activity-entry"><span className="activity-marker"><Activity size={12} /></span><span><strong>{events[0]}</strong><small>Abdul Kalam <span>· just now</span></small></span></div>
               {events.length > 1 && <div className="activity-entry older-entry"><span className="activity-marker muted-marker"><CheckCircle2 size={12} /></span><span><strong>{events[1]}</strong><small>System <span>· recently</span></small></span></div>}
 
               <div className="review-actions">
