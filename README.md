@@ -47,18 +47,23 @@ The current prototype represents a single demo reviewer. It does not implement r
 Reviewer
    |
    v
-React + TypeScript single-page application
-   |-- Synthetic exception examples in the frontend
-   |-- Deterministic display and filter behavior
-   |-- Sample explanations (no model call)
-   |-- Review state and activity in browser memory
-   `-- CSV export generated in the browser
+Reviewer browser
    |
    v
-Render Static Site (planned deployment target)
+React + TypeScript single-page application
+   |-- Synthetic exception examples and review state (current deployed UI)
+   `-- CSV export generated in the browser
+
+Local Phase 2 API (implemented; frontend integration and deployment pending)
+   |
+   v
+Python + FastAPI service
+   |-- Synthetic exception and evidence endpoints
+   |-- Validated review status updates and audit events
+   `-- PostgreSQL or local SQLite database
 ```
 
-The current prototype is deliberately frontend-only. It does **not** yet contain a Python API, database, authentication, persistent audit records, or OpenRouter integration.
+The deployed frontend is still standalone and does not call the API yet. The local Phase 2 backend has read endpoints, review status persistence, and audit events. It has no authentication, and it has no OpenRouter integration.
 
 ### Target architecture for a later POC increment
 
@@ -93,10 +98,11 @@ The target design is a future direction, **not functionality currently present**
 | **React** | Current frontend for the queue, evidence comparison, draft explanation, and review controls. | Supports a responsive, interactive workbench that business reviewers can evaluate early. |
 | **TypeScript** | Current frontend language. | Adds compile-time checks for exception fields, status values, and UI interactions. |
 | **Vite** | Current development server and frontend build tool. | Provides a quick local workflow and produces static files suitable for Render Static Sites. |
-| **Python + FastAPI** | Proposed backend; not implemented yet. Would own API validation, access checks, deterministic rules, AI orchestration, and audit writes. | Python is a practical fit for data processing and model integrations; FastAPI provides typed HTTP endpoints and generated API documentation. |
-| **PostgreSQL** | Proposed persistent database; not implemented yet. Would store synthetic source records, exception state, reviewer decisions, and audit events. | A relational database supports structured financial-operation records and traceable review history. A managed free-tier database may pause or have limited storage and must not be treated as a production service. |
+| **Python + FastAPI** | Implemented locally for exception listing/filtering, evidence detail, status updates, and health checks. Authentication and AI orchestration are not implemented. | Python is a practical fit for data processing and model integrations; FastAPI provides typed HTTP endpoints and generated API documentation. |
+| **PostgreSQL** | Implemented as the backend database, with migrations and synthetic seed data. SQLite is the default local fallback when `DATABASE_URL` is unset. Neon is the suggested hosted database for this demo. | A relational database supports structured operations records and traceable review history. Neon offers a free hosted PostgreSQL option without Render Free Postgres's current 30-day database expiry, though free-tier limits still apply and are subject to change. |
 | **OpenRouter** | Proposed model gateway; not connected yet. The backend would call it for draft summaries and checklists. | Provides a single API interface to multiple models. Model selection, availability, data handling, rate limits, and provider terms should be reviewed before use. |
-| **Render Static Site** | Intended free hosting target for the current frontend. | Serves the built React application as static files with a generated public URL and HTTPS. No backend secrets are needed for this frontend-only stage. |
+| **Render Static Site** | Hosts the current frontend. A separate Render Web Service is the proposed host for FastAPI after access controls are addressed. | Serves the built React application as static files with a generated public URL and HTTPS. Free web services may sleep when idle, causing a cold start on the next request. |
+| **Neon** | Suggested hosted PostgreSQL provider for the demo API; not configured yet. | Provides a managed PostgreSQL endpoint compatible with the current SQLAlchemy/psycopg backend. Its free plan currently includes 1 GB storage per project and scales compute to zero when idle; the database may therefore be unavailable briefly while it wakes. |
 | **GitHub** | Source repository and deployment trigger when connected to Render. | Supports version history and repeatable deployments from the selected branch. |
 
 ### Future request and data flow
@@ -153,9 +159,11 @@ Set acceptance thresholds with business stakeholders **before** running an evalu
 
 ### Phase 2 — API and persistence
 
-- Add a Python/FastAPI service and PostgreSQL storage for synthetic cases and review events.
-- Move demo records and deterministic rules behind the API.
-- Add server-side validation, basic authentication/authorization appropriate to the demo, and durable audit events.
+- [x] Add a Python/FastAPI service, database migrations, and PostgreSQL support for synthetic cases and review events.
+- [x] Add server-side exception filtering, evidence detail, review status validation, and durable audit-event writes.
+- [ ] Connect the React frontend to the API and replace its in-memory exception status.
+- [ ] After adding access controls, deploy the API and database; configure the production database URL and frontend CORS origin.
+- [ ] Decide on an appropriate demo authentication approach before exposing write endpoints publicly.
 - Keep the demo usable when AI is unavailable.
 
 ### Phase 3 — OpenRouter draft assistance
@@ -174,11 +182,12 @@ Set acceptance thresholds with business stakeholders **before** running an evalu
 
 ## Current status and known limitations
 
-- 10 fictional exception examples are embedded in the frontend.
-- Exception state and activity are held in browser memory and reset after refresh.
+- 10 fictional exception examples are embedded in the frontend and can be seeded into the backend database.
+- The deployed frontend still holds exception state and activity in browser memory and resets after refresh; it is not yet connected to the API.
+- The local FastAPI backend supports persisted status updates and review events when run against its configured database.
 - Explanation text and checklists are static examples, not model output.
 - Queue CSV export is generated locally from the visible filtered rows.
-- There is no backend, database, login, external integration, or live AI.
+- Backend authentication, production deployment, external integration, and live AI are not implemented.
 - The rendered demo is a workflow prototype, not an operational reconciliation system.
 
 ## Run locally
@@ -206,7 +215,81 @@ npm run preview
    - Publish directory: `dist`
 4. Deploy and open the generated `onrender.com` URL.
 
-The included rewrite serves the React application for browser routes. This frontend-only deployment needs no environment variables, API server, database, or OpenRouter key.
+The included rewrite serves the React application for browser routes. The deployed frontend is not yet connected to the API, so it does not need an API URL or backend secrets at this stage.
+
+## Run the API locally
+
+Requirements: Python 3.11 or later. The API uses a local SQLite file if `DATABASE_URL` is not set. For hosted PostgreSQL development, the API can also connect to a separate Neon development project.
+
+### Local PostgreSQL with Docker
+
+Start the local PostgreSQL container from the repository root:
+
+```powershell
+docker compose up -d db
+```
+
+In a second PowerShell terminal, install and run the backend from `backend`:
+
+```powershell
+cd backend
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
+python -m pip install -r requirements.txt
+$env:DATABASE_URL = "postgresql+psycopg://opsdesk:local_dev_only@localhost:5432/opsdesk"
+alembic upgrade head
+python -m app.seed
+uvicorn app.main:app --reload
+```
+
+The compose credentials are for local development only; do not reuse them outside this local container.
+
+### Use Neon PostgreSQL from a local Git Bash session
+
+Create a Neon project for development and copy its connection string from the Neon Console. Keep the password secret. From Git Bash, in `backend`, activate the virtual environment and configure the connection for this terminal session:
+
+```bash
+source .venv/Scripts/activate
+export DATABASE_URL='postgresql+psycopg://USER:PASSWORD@HOST/DATABASE?sslmode=require'
+alembic upgrade head
+python -m app.seed
+uvicorn app.main:app --reload
+```
+
+Replace the placeholders with the values from Neon. If Neon provides a URL beginning with `postgresql://`, change the scheme to `postgresql+psycopg://` and preserve its query parameters, including `sslmode=require`. Run migrations and seeding only against a development database or branch: they create the schema and insert the synthetic examples. The automated tests use a temporary SQLite database; running the API with the Neon URL is the way to exercise the managed PostgreSQL connection locally. Do not commit the connection string or put it in frontend configuration.
+
+The API docs are available at `http://127.0.0.1:8000/docs`, and its health endpoint is `http://127.0.0.1:8000/health`.
+
+Implemented endpoints:
+
+| Method | Path | Purpose |
+|---|---|---|
+| `GET` | `/api/v1/exceptions` | List exceptions; supports `search`, `category`, `status`, `limit`, and `offset`. |
+| `GET` | `/api/v1/exceptions/{id}` | Fetch exception detail, evidence, and activity history. |
+| `PATCH` | `/api/v1/exceptions/{id}/status` | Set status to `Investigating`, `Resolved`, or `Dismissed`; creates an audit event when the status changes. |
+| `GET` | `/health` | Verify the API can query its configured database. |
+
+The update endpoint currently records a configured demo reviewer name and does not authenticate callers. Keep it local until an access-control approach and deployment controls are implemented. To run backend tests, use `python -m pytest` from `backend`.
+
+## Proposed cloud deployment: Render API + Neon database
+
+The React frontend is already hosted as a Render Static Site. For a later backend deployment, the suggested arrangement is a Render Web Service for FastAPI and a separate Neon PostgreSQL project:
+
+- **Why use Neon for PostgreSQL?** It is a managed PostgreSQL service, so it works with the current database schema and avoids storing a SQLite database on a web service's ephemeral filesystem. Neon currently describes its Free plan as ongoing rather than a 30-day trial, unlike Render Free Postgres, which currently expires after 30 days. Neon Free still has limits (currently 1 GB storage per project), scales compute to zero after inactivity, and does not provide production durability guarantees. Check provider pricing and limits before deployment because they can change.
+- **Why keep the API on Render?** It can be deployed from the existing GitHub repository alongside the frontend. A Free Render Web Service sleeps after 15 minutes without inbound traffic and can take about a minute to wake. It has an ephemeral filesystem, so configure Neon for persistence rather than writing production state to SQLite.
+
+Before making the API publicly available, add and verify authentication/authorization: CORS only controls which browser origins may read responses and is not API access control. The current status-update endpoint allows unauthenticated writes. Until that is addressed, keep the API local; if deploying temporarily for isolated testing, use synthetic data only and understand that the public endpoint is not protected.
+
+After access controls are in place, configure a Render Web Service from the repository:
+
+1. Set **Root Directory** to `backend`.
+2. Set **Build Command** to `pip install -r requirements.txt`.
+3. Set **Start Command** to `alembic upgrade head && python -m app.seed && uvicorn app.main:app --host 0.0.0.0 --port $PORT`.
+4. Add `DATABASE_URL` as a secret environment variable, using the Neon connection URL with the `postgresql+psycopg://` scheme and SSL required. Use Neon’s pooled connection URL for the app if appropriate; run migrations using the direct connection URL if the provider or connection mode requires it.
+5. Set `ALLOWED_ORIGINS` to the exact HTTPS URL of the deployed Render Static Site. Do not include a trailing slash unless it is part of the origin (normally it is not).
+6. Once deployed, verify `/health` and `/docs`. Do not put `DATABASE_URL` or any database credential in the React build or browser environment.
+
+The React app currently does not call this API. Frontend API URL configuration and integration are a separate Phase 2 task; deployment alone will not make the current UI persistent.
 
 ## Glossary
 
